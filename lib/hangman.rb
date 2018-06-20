@@ -1,104 +1,103 @@
-require 'colorize'
 
-# Return indexes of occurences of a character in a string
-def find_indexes(needle, haystack)
-  indexes = haystack.split("").map.with_index do |character, index|
-    if character == needle
-      index
+class HangMan
+
+  def initialize(file = "words.txt")
+    @file_contents = File.readlines(file)
+    @words = proper_length_words
+    @secret_word = pick_random_word.downcase
+    @incomplete_word = generate_incomplete_word
+    @incorrect_guesses = []
+    @limit = 6
+  end
+
+  # Actual gameplay
+  def play
+    count = 0
+    loop do
+      break if count >= @limit || !(@incomplete_word.include? "_")
+
+      print_game_progress(count)
+
+      print "\nEnter your guess: "
+      guess = gets.chomp.to_s.downcase
+
+      unless is_valid_guess? guess
+        next
+      end
+
+      if @secret_word.include? guess
+        fill_correct_guess(guess)
+        puts "\nGreat. Keep going"
+      else
+        puts "\nYou entered an incorrect letter. Please try again"
+        @incorrect_guesses.push(guess)
+        count += 1
+      end
+    end
+
+    generate_results
+  end
+
+  # If guess is correct fill the correct characters in the word to guess
+  def fill_correct_guess(guess)
+    indexes = find_guess_position(guess)
+    indexes.map do |index|
+      @incomplete_word[index] = guess
+    end
+  end
+
+  # Find the position of the guess in the secret word
+  def find_guess_position(needle)
+    get_index = lambda { |character, index| index if character == needle }
+    indexes = @secret_word.split("").map.with_index(&get_index).reject { |c| c.nil? }
+  end
+
+  # Print the game progress
+  def print_game_progress(count)
+    puts "#{"." * 50}"
+    puts "\nWord         : #{@incomplete_word}"
+    puts "Attempts Left: #{@limit - count}"
+    unless @incorrect_guesses.empty?
+      puts "Incorrect inputs: #{@incorrect_guesses.join(", ")}"
+    end
+    puts "#{"." * 50}"
+  end
+
+  # Generates dashes with same length as the secret word
+  def generate_incomplete_word
+    "".rjust(@secret_word.length, "_")
+  end
+
+  # Display if player has won or lost
+  def generate_results
+    !(@incomplete_word.include? "_") ?
+        puts("Congratulations, you won.") :
+        puts("\nYou failed to guess the words.")
+  end
+
+  # Pick a random word from a txt file
+  def pick_random_word
+    random_word = @words.sample.gsub!(/\s+/, "")
+  end
+
+  # Get words that are between 5 and 12 characters
+  def proper_length_words
+    proper_length = lambda { |line| line.length.between?(5, 12) }
+    words = @file_contents.select(&proper_length)
+  end
+
+  # Validate input
+  def is_valid_guess?(guess)
+    if guess.length > 1
+      puts "\nOnly enter one character"
+    elsif (@incorrect_guesses.include? guess) || (@incomplete_word.include? guess)
+      puts "\nYou have already entered that word"
     else
-      next
+      true
     end
   end
-  indexes.reject! { |c| c.nil? }
 end
 
-# Replace the character at a certain index
-def replace_char_at_index(index, char, string)
-  index.map do |index|
-    string[index] = char
-  end
-  string
-end
-
-# Pick a random word from a txt file
-def pick_random_word
-  file_contents = File.readlines("words.txt");
-
-  filtered_words = file_contents.select do |line|
-    line.length.between?(5, 12)
-  end
-
-  filtered_words.sample.gsub!(/\s+/, "")
-end
-
-# Prints game progress
-def print_game_progress(incomplete_word, incorrect_letters, limit, count)
-  puts "#{"." * 50}"
-  puts "\nWord         : #{incomplete_word}".blue
-  puts "Attempts Left: #{limit - count}".blue
-  unless incorrect_letters.empty?
-    puts "Incorrect inputs: #{incorrect_letters.join(", ")}"
-  end
-  puts "#{"." * 50}"
-end
-
-# Checks if the input from user is a valid input
-def is_valid_input(guess, incorrect_letters, incomplete_word)
-  if guess.length > 1
-    puts "\nOnly enter one character".red
-    false
-  elsif (incorrect_letters.include? guess) || (incomplete_word.include? guess)
-    puts "\nYou have already entered that word".red
-    false
-  else
-    true
-  end
-end
-
-# Actual hangman game
-def play_hangman
-  secret_word = pick_random_word
-  incomplete_word = "".rjust(secret_word.length, "_")
-  incorrect_letters = []
-  count = 0
-  limit = 6
-
-  loop do
-    break if count >= limit || !(incomplete_word.include? "_")
-
-    print_game_progress(incomplete_word, incorrect_letters, limit, count)
-
-    print "\nEnter your guess: "
-    guess = gets.chomp.to_s
-
-    unless is_valid_input(guess, incorrect_letters, incomplete_word)
-      next
-    end
-
-    if secret_word.include? guess
-      indexes = find_indexes(guess, secret_word)
-      incomplete_word = replace_char_at_index(indexes, guess, incomplete_word)
-      puts "\nGreat. Keep going".green
-    else
-      puts "\nYou entered an incorrect letter. Please try again".red
-      incorrect_letters.push(guess)
-      count += 1
-    end
-  end
-
-  !(incomplete_word.include? "_") ?
-      puts("Congratulations, you won".green) :
-      puts("\nYou failed to guess the words.".red)
-end
-
-puts "\nWelcome to the hangman game. Choose the letters to complete the word"
-
-loop do
-  play_hangman
-
-  print "Would you like to play again? [y/n]: "
-  break if (gets.chomp != "y")
-end
-
-
+hang_man = HangMan.new
+hang_man.play
 
